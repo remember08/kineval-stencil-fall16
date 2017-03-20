@@ -29,7 +29,8 @@ function minheap_insert(new_element) {
 function minheap_extract() {
 	//document.write("<p>3</p>");
 	if(this.element.length == 0){return;}
-	sorted.push(this.element[0]);
+	if(this.element.length == 1){return this.element.pop();}
+	var min = this.element[0];
 	this.element[0] = this.element.pop();
 	var old_element_index = 0;
 	var temp = this.element[0];
@@ -40,7 +41,7 @@ function minheap_extract() {
 				this.element[old_element_index*2+1] = temp;
 				old_element_index = old_element_index*2+1;
 			}	//swap
-			else{return;}	
+			else break;	
 		}	//only have one child
 		else{
 			if(this.element[old_element_index*2+1] < this.element[old_element_index*2+2]){
@@ -55,7 +56,7 @@ function minheap_extract() {
 			}
 		}	//have two child
 	}	//have child
-
+	return min;
 }
 
 function minheap_print(heap){
@@ -79,8 +80,7 @@ for(var i=0; i<unsorted.length;i++)
 }
 for(var i=0; i<unsorted.length;i++)
 {
-	//document.write("<p>2</p>");
-	heap.extract();
+	sorted.push(heap.extract());
 	heap.print();
 }
 
