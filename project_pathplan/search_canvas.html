@@ -42,11 +42,9 @@
 <html>
 
 <body onload="init()">
-
-My 2D planner
-<br>
-
-<canvas id="myCanvas" width=800 height=800 style="z-index: 10 ;border:1px solid #000000;">
+<!--p>path planning</p>
+<p>path planning</p-->
+<canvas id="myCanvas" width=800 height=800 style="z-index: 10 ;border:1px solid #000000;position:absolute ;top:50px ;left:400px ;">
 </canvas> 
 
 <script>
@@ -77,9 +75,9 @@ function initSearch() {
 
     // specify default the world for the planner 
     //  (stored as "range" global variable with name "planning_scene")
-    //planning_scene = "empty";
+    planning_scene = "empty";
     //planning_scene = "misc";
-    planning_scene = "narrow1";
+    //planning_scene = "narrow1";
     //planning_scene = "narrow2";
     //planning_scene = "three_sections";
 
@@ -91,22 +89,29 @@ function initSearch() {
     canvas = document.getElementById("myCanvas");
     mouse_x = 0;
     mouse_y = 0;
+    obstacle_add = [0,0]
 
     // when the mouse moves, update the mouse's location
     canvas.onmousemove = function handleMouseMove(event) {
-        mouse_x = event.clientX;
-        mouse_y = event.clientY;
+        mouse_x = event.clientX - parseFloat(this.style.left);
+        mouse_y = event.clientY - parseFloat(this.style.top);
+
+        if(mouseDown)
+        {
+            obstacle_add = [xformViewWorldX(mouse_x),xformViewWorldY(mouse_y)];
+        }
     };
 
     // when the mouse button is pressed, update mouseDown
     canvas.onmousedown = function() { 
         mouseDown = 1; 
+        obstacle_add = [xformViewWorldX(mouse_x),xformViewWorldY(mouse_y)];
     };
 
     // when the mouse button is released, update mouseDown
     canvas.onmouseup = function() {
         mouseDown = 0;
-        q_goal = [xformViewWorldX(mouse_x),xformViewWorldY(mouse_y)];
+        //q_goal = [xformViewWorldX(mouse_x),xformViewWorldY(mouse_y)];
 
         // IMPORTANT: mouse_x and mouse_y are in absolute coordinates with
         //    respect to the browser window, and in units of pixels.  The
@@ -115,8 +120,8 @@ function initSearch() {
     };   
 
     // specify start and goal configurations
-    q_start_config = [0,0];
-    q_goal_config = [4,4];
+    q_start_config = [10,10];
+    q_goal_config = [40,40];
     q_init = q_start_config;
     q_goal = q_goal_config;
 
@@ -163,7 +168,7 @@ function initSearch() {
 
     // specify minimum number of milliseconds between successive search 
     //   iterations
-    min_msec_between_iterations = 20;
+    min_msec_between_iterations = 5;
 
     // create textbar DOM element for text output to browser window
     textbar = document.createElement('div');
@@ -177,7 +182,7 @@ function initSearch() {
     textbar.innerHTML = "4Progress - RRT Canvas";
     //textbar.style.top = 30 + 'px';  // position textbar wrt. document
     textbar.style.top = (25 + document.getElementById("myCanvas").offsetTop) + 'px';  // position textbar wrt. canvas
-    textbar.style.left = 30 + 'px';
+    textbar.style.left = 20 + 'px';
     document.body.appendChild(textbar);
 
 }
@@ -244,13 +249,13 @@ function animate() {
         search_alg + " progress: " + search_result
         + " <br> "
         + "start: " + q_init
-        + " | "
+        + " <br> "
         + "goal: " + q_goal
         + " <br> "
         + "iteration: " + search_iter_count
-        + " | "
+        + " <br> "
         + "visited: " + search_visited
-        + " | "
+        + " <br> "
         + "queue size: " + visit_queue.length
         + " <br> "
         + "path length: " + path_length.toFixed(2);
@@ -332,17 +337,30 @@ function iterateRRTStar() {
 //////////////////////////////////////////////////
 
 // functions for transforming canvas coordinates into planning world coordinates
+// function xformWorldViewX(world_x) {
+//     return (world_x*100)+200;  // view_x
+// }
+// function xformWorldViewY(world_y) {
+//     return (world_y*100)+200;  // view_y
+// }
+// function xformViewWorldX(view_x) {
+//     return (view_x-200)/100;  // view_x
+// }
+// function xformViewWorldY(view_y) {
+//     return (view_y-200)/100;  // view_y
+// }
+
 function xformWorldViewX(world_x) {
-    return (world_x*100)+200;  // view_x
+    return world_x*10;  // view_x
 }
 function xformWorldViewY(world_y) {
-    return (world_y*100)+200;  // view_y
+    return world_y*10;  // view_y
 }
 function xformViewWorldX(view_x) {
-    return (view_x-200)/100;  // view_x
+    return Math.floor(view_x/10);  // view_x
 }
 function xformViewWorldY(view_y) {
-    return (view_y-200)/100;  // view_y
+    return Math.floor(view_y/10);  // view_y
 }
 
 
@@ -352,15 +370,19 @@ function drawRobotWorld() {
     c = document.getElementById("myCanvas");
     ctx = c.getContext("2d");
     ctx.fillStyle = "#0000FF";
-    ctx.fillRect(xformWorldViewX(q_init[0])-5,xformWorldViewY(q_init[1])-5,10,10);
+    ctx.fillRect(xformWorldViewX(q_init[0]),xformWorldViewY(q_init[1]),10,10);
     ctx.fillStyle = "#00FF00";
-    ctx.fillRect(xformWorldViewX(q_goal[0])-5,xformWorldViewY(q_goal[1])-5,10,10);
+    ctx.fillRect(xformWorldViewX(q_goal[0]),xformWorldViewY(q_goal[1]),10,10);
+    // draw obstacle
+    ctx.fillStyle = "#FF0000";
+    ctx.fillRect(xformWorldViewX(obstacle_add[0]),xformWorldViewY(obstacle_add[1]),10,10);
 
     // draw robot's world
     for (j=0;j<range.length;j++) { 
         ctx.fillStyle = "#8888FF";
         ctx.fillRect(xformWorldViewX(range[j][0][0]),xformWorldViewY(range[j][1][0]),xformWorldViewX(range[j][0][1])-xformWorldViewX(range[j][0][0]),xformWorldViewY(range[j][1][1])-xformWorldViewY(range[j][1][0]));
     }
+
  
 }
 
@@ -428,10 +450,10 @@ function setPlanningScene() {
     range = []; // global variable
 
     // world boundary
-    range[0] = [ [-1.8,5.8],[-1.8,-1] ];
-    range[1] = [ [-1.8,5.8],[5,5.8] ];
-    range[2] = [ [-1.8,-1], [-1.8,5.8] ];
-    range[3] = [ [5,5.8],   [-1.8,5.8] ];
+    range[0] = [ [0,80],[0,5] ];
+    range[1] = [ [0,80],[75,80] ];
+    range[2] = [ [0,5],[0,80] ];
+    range[3] = [ [75,80],[0,80] ];
 
     if (typeof planning_scene === 'undefined')
         planning_scene = 'empty';
