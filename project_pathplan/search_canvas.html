@@ -87,6 +87,8 @@ function initSearch() {
 
     // create event handlers for the mouse
     canvas = document.getElementById("myCanvas");
+    drawStep = "Start";
+    onSearching = 0;
     mouse_x = 0;
     mouse_y = 0;
     obstacle_add = [0,0]
@@ -96,16 +98,16 @@ function initSearch() {
         mouse_x = event.clientX - parseFloat(this.style.left);
         mouse_y = event.clientY - parseFloat(this.style.top);
 
-        if(mouseDown)
+        if(mouseDown && drawStep == "Obstacle")
         {
-            obstacle_add = [xformViewWorldX(mouse_x),xformViewWorldY(mouse_y)];
+            drawMap();
         }
     };
 
     // when the mouse button is pressed, update mouseDown
     canvas.onmousedown = function() { 
         mouseDown = 1; 
-        obstacle_add = [xformViewWorldX(mouse_x),xformViewWorldY(mouse_y)];
+        //obstacle_add = [xformViewWorldX(mouse_x),xformViewWorldY(mouse_y)];
     };
 
     // when the mouse button is released, update mouseDown
@@ -119,9 +121,18 @@ function initSearch() {
         //    canvas element.
     };   
 
+    // when the mouse moves out the canvas, update mouseDown
+    canvas.onmouseout = function() {
+        mouseDown = 0;
+    }
+
+    canvas.onclick = function() {
+        drawMap();
+    }
+
     // specify start and goal configurations
-    q_start_config = [10,10];
-    q_goal_config = [40,40];
+    q_start_config = [0,0];
+    q_goal_config = [0,0];
     q_init = q_start_config;
     q_goal = q_goal_config;
 
@@ -168,7 +179,7 @@ function initSearch() {
 
     // specify minimum number of milliseconds between successive search 
     //   iterations
-    min_msec_between_iterations = 5;
+    min_msec_between_iterations = 1;
 
     // create textbar DOM element for text output to browser window
     textbar = document.createElement('div');
@@ -184,6 +195,8 @@ function initSearch() {
     textbar.style.top = (25 + document.getElementById("myCanvas").offsetTop) + 'px';  // position textbar wrt. canvas
     textbar.style.left = 20 + 'px';
     document.body.appendChild(textbar);
+
+
 
 }
 
@@ -209,7 +222,8 @@ function animate() {
     //   control flow of the setInterval function.
 
     // render the world to the canvas element
-    drawRobotWorld();
+    //drawRobotWorld();
+
 
     // make sure the rrt iterations are not running faster than animation update
     if (search_iterate && (Date.now()-cur_time > min_msec_between_iterations)) {
@@ -363,25 +377,49 @@ function xformViewWorldY(view_y) {
     return Math.floor(view_y/10);  // view_y
 }
 
-
-function drawRobotWorld() {
-
-    // draw start and goal configurations
+function drawMap() {
+    if(!onSearching) {
+        if(drawStep == "Start") {
+         drawStart();
+           drawStep = "Goal"
+        }
+      else if(drawStep == "Goal") {
+           drawGoal();
+            drawStep = "Obstacle"
+       }
+       else drawObstacles();        
+    }
+}
+function drawStart() {
+    q_init = [xformViewWorldX(mouse_x),xformViewWorldY(mouse_y)];
     c = document.getElementById("myCanvas");
     ctx = c.getContext("2d");
     ctx.fillStyle = "#0000FF";
     ctx.fillRect(xformWorldViewX(q_init[0]),xformWorldViewY(q_init[1]),10,10);
+}
+
+function drawGoal() {
+    q_goal = [xformViewWorldX(mouse_x),xformViewWorldY(mouse_y)];
+    c = document.getElementById("myCanvas");
+    ctx = c.getContext("2d");
     ctx.fillStyle = "#00FF00";
     ctx.fillRect(xformWorldViewX(q_goal[0]),xformWorldViewY(q_goal[1]),10,10);
+}
+
+function drawObstacles() {
+
+    q_obstacle = [xformViewWorldX(mouse_x),xformViewWorldY(mouse_y)];
+    c = document.getElementById("myCanvas");
+    ctx = c.getContext("2d");
     // draw obstacle
-    ctx.fillStyle = "#FF0000";
-    ctx.fillRect(xformWorldViewX(obstacle_add[0]),xformWorldViewY(obstacle_add[1]),10,10);
+    ctx.fillStyle = "#666666";
+    ctx.fillRect(xformWorldViewX(q_obstacle[0]),xformWorldViewY(q_obstacle[1]),10,10);
 
     // draw robot's world
-    for (j=0;j<range.length;j++) { 
-        ctx.fillStyle = "#8888FF";
-        ctx.fillRect(xformWorldViewX(range[j][0][0]),xformWorldViewY(range[j][1][0]),xformWorldViewX(range[j][0][1])-xformWorldViewX(range[j][0][0]),xformWorldViewY(range[j][1][1])-xformWorldViewY(range[j][1][0]));
-    }
+    // for (j=0;j<range.length;j++) { 
+    //     ctx.fillStyle = "#8888FF";
+    //     ctx.fillRect(xformWorldViewX(range[j][0][0]),xformWorldViewY(range[j][1][0]),xformWorldViewX(range[j][0][1])-xformWorldViewX(range[j][0][0]),xformWorldViewY(range[j][1][1])-xformWorldViewY(range[j][1][0]));
+    // }
 
  
 }
