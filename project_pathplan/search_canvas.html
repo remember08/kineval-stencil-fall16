@@ -68,7 +68,8 @@ function initSearch() {
     //search_alg = "depth-first";  
     //search_alg = "breadth-first";  
     //search_alg = "greedy-best-first";  
-    search_alg = "A-star";  
+    search_alg = "Dijkstra";
+    //search_alg = "A-star";  
     //search_alg = "RRT";  
     //search_alg = "RRT-connect";  
     //search_alg = "RRT-star";  
@@ -92,6 +93,11 @@ function initSearch() {
     mouse_x = 0;
     mouse_y = 0;
     obstacle_add = [0,0]
+    obstacle_count = 0;
+    //visit_queue = [];
+    var map;
+    buildMap();
+    var visit_queue = create_minheap();
 
     // when the mouse moves, update the mouse's location
     canvas.onmousemove = function handleMouseMove(event) {
@@ -147,7 +153,7 @@ function initSearch() {
     }
 
     // set the world for the planner 
-    setPlanningScene();
+    //setPlanningScene();
 
     // initialize search tree from start configurations (RRT-based algorithms)
     T_a = initRRT(q_init);
@@ -155,7 +161,7 @@ function initSearch() {
     T_b = initRRT(q_goal);
 
     // initialize graph search algorithms (DFS, BFS, A-star) 
-    initSearchGraph();
+    //initSearchGraph();
 
     // flag to continue or stop search iterations
     search_iterate = true;
@@ -179,7 +185,7 @@ function initSearch() {
 
     // specify minimum number of milliseconds between successive search 
     //   iterations
-    min_msec_between_iterations = 1;
+    min_msec_between_iterations = 10;
 
     // create textbar DOM element for text output to browser window
     textbar = document.createElement('div');
@@ -190,7 +196,7 @@ function initSearch() {
     textbar.style["font-size"] = "14px";
     textbar.style.height = 20;
     textbar.style.color = "#000000";
-    textbar.innerHTML = "4Progress - RRT Canvas";
+    //textbar.innerHTML = "4Progress - RRT Canvas";
     //textbar.style.top = 30 + 'px';  // position textbar wrt. document
     textbar.style.top = (25 + document.getElementById("myCanvas").offsetTop) + 'px';  // position textbar wrt. canvas
     textbar.style.left = 20 + 'px';
@@ -239,6 +245,8 @@ function animate() {
             case "depth-first": 
             case "breadth-first": 
             case "greedy-best-first": 
+            case "Dijkstra":
+                search_result = iterateDijkstra();
             case "A-star": 
                 search_result = iterateGraphSearch();
                 break;
@@ -266,6 +274,8 @@ function animate() {
         + " <br> "
         + "goal: " + q_goal
         + " <br> "
+        + "obstacle-count: " + obstacle_count
+        + " <br> "
         + "iteration: " + search_iter_count
         + " <br> "
         + "visited: " + search_visited
@@ -280,6 +290,59 @@ function animate() {
     // callback request for the animate function be called again
     //   more details online:  http://learningwebgl.com/blog/?p=3189
     requestAnimationFrame( animate );
+}
+
+
+function iterateDijkstra() {
+    search_iterate = false;
+    if (search_iter_count ==1){
+        cur_node = new Node(q_init);
+        cur_node.distance = 0;
+        cur_node.visited = true;
+
+        visit_queue.insert(cur_node,cur_node.distance);
+    }
+    if(visit_queue.element.length)  //visit_queue not empty
+    {
+        cur_node = visit_queue.extract();
+        cur_node.visited = true;
+        if(cur_node.map_index.toString() == q_goal.toString())
+        {
+            drawPath();
+            return;
+        }
+        for(var x in cur_node.adjacent())
+        {
+            visit_queue.insert(x,x.distance);
+            if (x.distance > cur_node.distance + dist(cur_node,x)){
+                x.parent = cur_node;
+                x.distance = cur_node.distance + dist(cur_node,x)
+            }
+        }
+    }
+    search_iterate = true;
+}
+
+function adjacent() {
+    var temp_adjacent = new Array();
+    temp_adjacent[0] = [this.map_index[0]-1,this.map_index[1]-1];
+    temp_adjacent[1] = [this.map_index[0]-1,this.map_index[1]];
+    temp_adjacent[2] = [this.map_index[0]-1,this.map_index[1]+1];
+    temp_adjacent[3] = [this.map_index[0],this.map_index[1]-1];
+    temp_adjacent[4] = [this.map_index[0],this.map_index[1]+1];
+    temp_adjacent[5] = [this.map_index[0]+1,this.map_index[1]-1];
+    temp_adjacent[6] = [this.map_index[0]+1,this.map_index[1]];
+    temp_adjacent[7] = [this.map_index[0]+1,this.map_index[1]+1];
+
+    for (var x in temp_adjacent){
+        if (x[0]<0 || x[1]<0){
+            //delete this temp adjacent
+        }
+    }
+}
+
+function dist() {
+
 }
 
 function iterateGraphSearch() {
@@ -351,19 +414,6 @@ function iterateRRTStar() {
 //////////////////////////////////////////////////
 
 // functions for transforming canvas coordinates into planning world coordinates
-// function xformWorldViewX(world_x) {
-//     return (world_x*100)+200;  // view_x
-// }
-// function xformWorldViewY(world_y) {
-//     return (world_y*100)+200;  // view_y
-// }
-// function xformViewWorldX(view_x) {
-//     return (view_x-200)/100;  // view_x
-// }
-// function xformViewWorldY(view_y) {
-//     return (view_y-200)/100;  // view_y
-// }
-
 function xformWorldViewX(world_x) {
     return world_x*10;  // view_x
 }
@@ -377,6 +427,15 @@ function xformViewWorldY(view_y) {
     return Math.floor(view_y/10);  // view_y
 }
 
+function buildMap() {
+    map = new Array(80);
+    for (var i=0; i<80; i++){
+        map[i] = new Array(80);
+        for(var j=0; j<80; j++){
+            map[i][j] = [0,null];      //[obstacle?,node registed?]
+        }
+    }
+}
 function drawMap() {
     if(!onSearching) {
         if(drawStep == "Start") {
@@ -407,13 +466,19 @@ function drawGoal() {
 }
 
 function drawObstacles() {
-
     q_obstacle = [xformViewWorldX(mouse_x),xformViewWorldY(mouse_y)];
-    c = document.getElementById("myCanvas");
-    ctx = c.getContext("2d");
-    // draw obstacle
-    ctx.fillStyle = "#666666";
-    ctx.fillRect(xformWorldViewX(q_obstacle[0]),xformWorldViewY(q_obstacle[1]),10,10);
+    if(q_obstacle.toString() != q_init.toString() && q_obstacle.toString() != q_goal.toString()) {
+        if(!map[q_obstacle[0]][q_obstacle[1]][0])   //
+        {
+            map[q_obstacle[0]][q_obstacle[1]][0] = 1;
+            obstacle_count++;
+            c = document.getElementById("myCanvas");
+            ctx = c.getContext("2d");
+            // draw obstacle
+            ctx.fillStyle = "#666666";
+            ctx.fillRect(xformWorldViewX(q_obstacle[0]),xformWorldViewY(q_obstacle[1]),10,10);
+        }
+    }
 
     // draw robot's world
     // for (j=0;j<range.length;j++) { 
@@ -457,73 +522,84 @@ function drawHighlightedPathGraph(current_node) {
 }
 
 
-function initSearchGraph() {
+// function initSearchGraph() {
 
-    // initialize search graph as 2D array over configuration space 
-    //   of 2D locations with specified spatial resolution 
-    G = [];
-    for (iind=0,xpos=-2;xpos<7;iind++,xpos+=eps) {
-        G[iind] = [];
-        for (jind=0,ypos=-2;ypos<7;jind++,ypos+=eps) {
-            G[iind][jind] = {
-                i:iind,j:jind, // mapping to graph array
-                x:xpos,y:ypos, // mapping to map coordinates
-                parent:null, // pointer to parent in graph along motion path
-                distance:10000, // distance to start via path through parent
-                visited:false, // flag for whether the node has been visited
-                priority:null, // visit priority based on fscore
-                queued:false // flag for whether the node has been queued for visiting
-            };
+//     // initialize search graph as 2D array over configuration space 
+//     //   of 2D locations with specified spatial resolution 
+//     G = [];
+//     for (iind=0,xpos=-2;xpos<7;iind++,xpos+=eps) {
+//         G[iind] = [];
+//         for (jind=0,ypos=-2;ypos<7;jind++,ypos+=eps) {
+//             G[iind][jind] = {
+//                 i:iind,j:jind, // mapping to graph array
+//                 x:xpos,y:ypos, // mapping to map coordinates
+//                 parent:null, // pointer to parent in graph along motion path
+//                 distance:10000, // distance to start via path through parent
+//                 visited:false, // flag for whether the node has been visited
+//                 priority:null, // visit priority based on fscore
+//                 queued:false // flag for whether the node has been queued for visiting
+//             };
 
-            // STENCIL: determine whether this graph node should be the start
-            //   point for the search
-                visit_queue = [];
-        }
-    }
+//             // STENCIL: determine whether this graph node should be the start
+//             //   point for the search
+//                 visit_queue = [];
+//         }
+//     }
+// }
+
+var Node = function(map_index) {
+    this.parent = null;
+    this.distance = -1;
+    this.visited = false;
+    this.map_index = map_index;
+    this.adjacent = adjacent;
+    //register the node in map
+    map[map_index[0]][map_index[1]][1] = this;
+
 }
 
-function setPlanningScene() {
+// function setPlanningScene() {
 
-    // obstacles specified as a range along [0] (x-dimension) and [1] y-dimension
-    range = []; // global variable
+//     // obstacles specified as a range along [0] (x-dimension) and [1] y-dimension
+//     range = []; // global variable
 
-    // world boundary
-    range[0] = [ [0,80],[0,5] ];
-    range[1] = [ [0,80],[75,80] ];
-    range[2] = [ [0,5],[0,80] ];
-    range[3] = [ [75,80],[0,80] ];
+//     // world boundary
+//     range[0] = [ [0,80],[0,5] ];
+//     range[1] = [ [0,80],[75,80] ];
+//     range[2] = [ [0,5],[0,80] ];
+//     range[3] = [ [75,80],[0,80] ];
 
-    if (typeof planning_scene === 'undefined')
-        planning_scene = 'empty';
+//     if (typeof planning_scene === 'undefined')
+//         planning_scene = 'empty';
 
-    if (planning_scene == 'misc') {
-        /*  misc stuff with narrow opening */
-        range[4] = [ [1,2],[1,2] ];
-        range[5] = [ [3,3.3],[1,4] ];
-        range[6] = [ [0.6,0.7],[0.4,0.7] ];
-        range[7] = [ [3.7,3.9],[-0.8,5] ];
-    }
-    else if (planning_scene == 'narrow1') {
-        /*  narrow path 1 */
-        range[4] = [ [1,3],[4,5] ];
-        range[5] = [ [1,3],[-1,2] ];
-        range[6] = [ [1,1.95],[2,3.8] ];
-    }
-    else if (planning_scene == 'narrow2') {
-        /*  narrow path 2 */
-        range[4] = [ [1,3],[4,5] ];
-        range[5] = [ [1,3],[-1,2] ];
-        range[6] = [ [1,1.9],[2,3.8] ];
-        range[7] = [ [2.1,3],[2.2,4] ];
-    }
-    else if (planning_scene == 'three_sections') {
-        /*  three compartments */
-        range[4] = [ [1,1.3],[4,5] ];
-        range[5] = [ [1,1.3],[-1,3.5] ];
-        range[6] = [ [2.7,3],[-1,0] ];
-        range[7] = [ [2.7,3],[.5,5] ];
-    }
-}
+//     if (planning_scene == 'misc') {
+//         /*  misc stuff with narrow opening */
+//         range[4] = [ [1,2],[1,2] ];
+//         range[5] = [ [3,3.3],[1,4] ];
+//         range[6] = [ [0.6,0.7],[0.4,0.7] ];
+//         range[7] = [ [3.7,3.9],[-0.8,5] ];
+//     }
+//     else if (planning_scene == 'narrow1') {
+//         /*  narrow path 1 */
+//         range[4] = [ [1,3],[4,5] ];
+//         range[5] = [ [1,3],[-1,2] ];
+//         range[6] = [ [1,1.95],[2,3.8] ];
+//     }
+//     else if (planning_scene == 'narrow2') {
+//         /*  narrow path 2 */
+//         range[4] = [ [1,3],[4,5] ];
+//         range[5] = [ [1,3],[-1,2] ];
+//         range[6] = [ [1,1.9],[2,3.8] ];
+//         range[7] = [ [2.1,3],[2.2,4] ];
+//     }
+//     else if (planning_scene == 'three_sections') {
+//         /*  three compartments */
+//         range[4] = [ [1,1.3],[4,5] ];
+//         range[5] = [ [1,1.3],[-1,3.5] ];
+//         range[6] = [ [2.7,3],[-1,0] ];
+//         range[7] = [ [2.7,3],[.5,5] ];
+//     }
+// }
 
 function testCollision(q) {
 
