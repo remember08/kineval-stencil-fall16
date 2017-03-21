@@ -44,9 +44,10 @@
 <body onload="init()">
 <!--p>path planning</p>
 <p>path planning</p-->
-<canvas id="myCanvas" width=800 height=800 style="z-index: 10 ;border:1px solid #000000;position:absolute ;top:50px ;left:400px ;">
+<canvas id="myCanvas" width=800 height=800 style="z-index: 10 ;border:1px solid #000000;position:absolute ;top:50px ;left:300px ;">
 </canvas> 
-
+<button id="Start" style="position: absolute;">Start Searching</button>
+<script type="text/javascript" src="../tutorial_heapsort/heap.js"></script>
 <script>
 
 //////////////////////////////////////////////////
@@ -59,7 +60,7 @@ function init() {
     initSearch();
 
     // start main animation/iteration loop 
-    animate();
+    //animate();
 }
 
 function initSearch() {
@@ -90,14 +91,15 @@ function initSearch() {
     canvas = document.getElementById("myCanvas");
     drawStep = "Start";
     onSearching = 0;
+    mouseDown = 0;
     mouse_x = 0;
     mouse_y = 0;
     obstacle_add = [0,0]
     obstacle_count = 0;
     //visit_queue = [];
-    var map;
+    map = {};
     buildMap();
-    var visit_queue = create_minheap();
+    visit_queue = new create_minheap();
 
     // when the mouse moves, update the mouse's location
     canvas.onmousemove = function handleMouseMove(event) {
@@ -202,6 +204,13 @@ function initSearch() {
     textbar.style.left = 20 + 'px';
     document.body.appendChild(textbar);
 
+    button1 = document.getElementById("Start");
+    button1.style.top = document.getElementById("myCanvas").offsetTop + 450 + 'px';
+    button1.style.left = 40 + 'px';
+    button1.onclick = function() {
+        animate();
+    }
+
 
 
 }
@@ -301,14 +310,16 @@ function iterateDijkstra() {
         cur_node.visited = true;
 
         visit_queue.insert(cur_node,cur_node.distance);
+        //search_visited += 1;
     }
-    if(visit_queue.element.length)  //visit_queue not empty
+    if(visit_queue.length)  //visit_queue not empty
     {
         cur_node = visit_queue.extract();
+        search_visited += 1;
         cur_node.visited = true;
         if(cur_node.map_index.toString() == q_goal.toString())
         {
-            drawPath();
+            //drawPath();
             return;
         }
         for(var x in cur_node.adjacent())
@@ -325,24 +336,64 @@ function iterateDijkstra() {
 
 function adjacent() {
     var temp_adjacent = new Array();
-    temp_adjacent[0] = [this.map_index[0]-1,this.map_index[1]-1];
-    temp_adjacent[1] = [this.map_index[0]-1,this.map_index[1]];
-    temp_adjacent[2] = [this.map_index[0]-1,this.map_index[1]+1];
-    temp_adjacent[3] = [this.map_index[0],this.map_index[1]-1];
-    temp_adjacent[4] = [this.map_index[0],this.map_index[1]+1];
-    temp_adjacent[5] = [this.map_index[0]+1,this.map_index[1]-1];
-    temp_adjacent[6] = [this.map_index[0]+1,this.map_index[1]];
-    temp_adjacent[7] = [this.map_index[0]+1,this.map_index[1]+1];
+    var temp_node_queue = new Array();
+    temp_adjacent[0] = [this.map_index[0]-1,this.map_index[1],1];
+    temp_adjacent[1] = [this.map_index[0],this.map_index[1]-1,1];
+    temp_adjacent[2] = [this.map_index[0],this.map_index[1]+1,1];
+    temp_adjacent[3] = [this.map_index[0]+1,this.map_index[1],1];
+    temp_adjacent[4] = [this.map_index[0]-1,this.map_index[1]-1,1];
+    temp_adjacent[5] = [this.map_index[0]-1,this.map_index[1]+1,1];
+    temp_adjacent[6] = [this.map_index[0]+1,this.map_index[1]-1,1];
+    temp_adjacent[7] = [this.map_index[0]+1,this.map_index[1]+1,1];
 
-    for (var x in temp_adjacent){
-        if (x[0]<0 || x[1]<0){
-            //delete this temp adjacent
+    if (this.map_index[0]==0) temp_adjacent[0][2]=0;
+    if (this.map_index[1]==0) temp_adjacent[1][2]=0;
+    if (this.map_index[1]==79) temp_adjacent[2][2]=0;
+    if (this.map_index[0]==79) temp_adjacent[3][2]=0;
+
+    if(temp_adjacent[0][2] && map[temp_adjacent[0][0]][temp_adjacent[0][1]][0]) temp_adjacent[0][2]=0;
+    if(temp_adjacent[1][2] && map[temp_adjacent[1][0]][temp_adjacent[1][1]][0]) temp_adjacent[1][2]=0;
+    if(temp_adjacent[2][2] && map[temp_adjacent[2][0]][temp_adjacent[2][1]][0]) temp_adjacent[2][2]=0;
+    if(temp_adjacent[3][2] && map[temp_adjacent[3][0]][temp_adjacent[3][1]][0]) temp_adjacent[3][2]=0;
+
+    if(!(temp_adjacent[0][2] && temp_adjacent[1][2])) temp_adjacent[4][2]=0;
+    if(!(temp_adjacent[0][2] && temp_adjacent[2][2])) temp_adjacent[5][2]=0;
+    if(!(temp_adjacent[1][2] && temp_adjacent[3][2])) temp_adjacent[6][2]=0;
+    if(!(temp_adjacent[2][2] && temp_adjacent[3][2])) temp_adjacent[7][2]=0;
+
+    if(temp_adjacent[4][2] && map[temp_adjacent[4][0]][temp_adjacent[4][1]][0]) temp_adjacent[4][2]=0;
+    if(temp_adjacent[5][2] && map[temp_adjacent[5][0]][temp_adjacent[5][1]][0]) temp_adjacent[5][2]=0;
+    if(temp_adjacent[6][2] && map[temp_adjacent[6][0]][temp_adjacent[6][1]][0]) temp_adjacent[6][2]=0;
+    if(temp_adjacent[7][2] && map[temp_adjacent[7][0]][temp_adjacent[7][1]][0]) temp_adjacent[7][2]=0;
+
+    for (var x in temp_adjacent) {
+        if (x[2]) {
+            if (map[x[0]][x[1]][1]!=null) {
+                if (map[x[0]][x[1]][1].visited) {
+                    x[2] = 0;
+                }
+            }
         }
     }
+
+    for (var x in temp_adjacent) {
+        if (x[2]) {
+            var index = [x[0],x[1]];
+            temp_node_queue.push(new Node(index));
+        }
+    }
+    return temp_node_queue;
 }
 
-function dist() {
 
+function dist(node1,node2) {
+    var del_x,del_y;
+    del_x = node1.map_index[0] - node2.map_index[0];
+    del_y = node1.map_index[1] - node2.map_index[1];
+    if(del_x < 0)   del_x = 0-del_x;
+    if(del_y < 0)   del_y = 0-del_y;
+    if(del_x < del_y) return (del_x+(del_y-del_x)*1.414);
+    else return (del_y+(del_x-del_y)*1.414);
 }
 
 function iterateGraphSearch() {
@@ -549,7 +600,7 @@ function drawHighlightedPathGraph(current_node) {
 
 var Node = function(map_index) {
     this.parent = null;
-    this.distance = -1;
+    this.distance = 10000;
     this.visited = false;
     this.map_index = map_index;
     this.adjacent = adjacent;
