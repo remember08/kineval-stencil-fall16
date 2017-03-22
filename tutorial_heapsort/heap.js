@@ -11,6 +11,7 @@ function create_minheap(){
 	this.element = new Array();
 	this.insert = minheap_insert;
 	this.extract = minheap_extract;
+	this.get_length = function(){this.element.length;}
 	//this.print = minheap_print;
 }
 

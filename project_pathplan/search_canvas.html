@@ -69,15 +69,15 @@ function initSearch() {
     //search_alg = "depth-first";  
     //search_alg = "breadth-first";  
     //search_alg = "greedy-best-first";  
-    search_alg = "Dijkstra";
-    //search_alg = "A-star";  
+    //search_alg = "Dijkstra";
+    search_alg = "A-star";  
     //search_alg = "RRT";  
     //search_alg = "RRT-connect";  
     //search_alg = "RRT-star";  
 
     // specify default the world for the planner 
     //  (stored as "range" global variable with name "planning_scene")
-    planning_scene = "empty";
+    //planning_scene = "empty";
     //planning_scene = "misc";
     //planning_scene = "narrow1";
     //planning_scene = "narrow2";
@@ -241,8 +241,8 @@ function animate() {
 
 
     // make sure the rrt iterations are not running faster than animation update
-    if (search_iterate && (Date.now()-cur_time > min_msec_between_iterations)) {
-
+    //if (search_iterate && (Date.now()-cur_time > min_msec_between_iterations)) {
+    if (search_iterate) {    
         // update time marker for last iteration update
         cur_time = Date.now();
 
@@ -256,8 +256,9 @@ function animate() {
             case "greedy-best-first": 
             case "Dijkstra":
                 search_result = iterateDijkstra();
+                break;
             case "A-star": 
-                search_result = iterateGraphSearch();
+                search_result = iterateA_Star();
                 break;
             case "RRT": 
                 search_result = iterateRRT();
@@ -289,7 +290,7 @@ function animate() {
         + " <br> "
         + "visited: " + search_visited
         + " <br> "
-        + "queue size: " + visit_queue.length
+        + "queue size: " + visit_queue.element.length
         + " <br> "
         + "path length: " + path_length.toFixed(2);
         //textbar.innerHTML += "<br> mouse ("+ mouse_x+","+mouse_y+")";
@@ -298,7 +299,8 @@ function animate() {
 
     // callback request for the animate function be called again
     //   more details online:  http://learningwebgl.com/blog/?p=3189
-    requestAnimationFrame( animate );
+    //requestAnimationFrame( animate );
+     animate();
 }
 
 
@@ -307,30 +309,82 @@ function iterateDijkstra() {
     if (search_iter_count ==1){
         cur_node = new Node(q_init);
         cur_node.distance = 0;
-        cur_node.visited = true;
+        cur_node.visited = false;
 
         visit_queue.insert(cur_node,cur_node.distance);
         //search_visited += 1;
     }
-    if(visit_queue.length)  //visit_queue not empty
+    debugger;
+    while(visit_queue.element.length)  //visit_queue not empty
     {
         cur_node = visit_queue.extract();
+        if (cur_node.visited) continue;
         search_visited += 1;
         cur_node.visited = true;
+        if (search_visited > 1) drawFindingMap(cur_node);
+        path_length = cur_node.distance;
         if(cur_node.map_index.toString() == q_goal.toString())
         {
-            //drawPath();
+            drawPath();
             return;
         }
-        for(var x in cur_node.adjacent())
+        var temp_node_array = cur_node.adjacent();
+        for(var x in temp_node_array)
         {
-            visit_queue.insert(x,x.distance);
-            if (x.distance > cur_node.distance + dist(cur_node,x)){
-                x.parent = cur_node;
-                x.distance = cur_node.distance + dist(cur_node,x)
+            //visit_queue.insert(temp_node_array[x],temp_node_array[x].distance);
+            if (temp_node_array[x].distance > cur_node.distance + dist(cur_node,temp_node_array[x])){
+                temp_node_array[x].parent = cur_node;
+                temp_node_array[x].distance = cur_node.distance + dist(cur_node,temp_node_array[x])
             }
+            visit_queue.insert(temp_node_array[x],temp_node_array[x].distance);
         }
+        break;
     }
+    debugger;
+    search_iterate = true;
+}
+
+
+function iterateA_Star() {
+    search_iterate = false;
+    if (search_iter_count ==1){
+        cur_node = new Node(q_init);
+        goal_node = new Node(q_goal);
+        cur_node.distance = 0;
+        cur_node.f_score = cur_node.distance + 2*dist(cur_node,goal_node);
+        cur_node.visited = false;
+
+        visit_queue.insert(cur_node,cur_node.f_score);
+        //search_visited += 1;
+    }
+    debugger;
+    while(visit_queue.element.length)  //visit_queue not empty
+    {
+        cur_node = visit_queue.extract();
+        if (cur_node.visited) continue;
+        search_visited += 1;
+        cur_node.visited = true;
+        if (search_visited > 1) drawFindingMap(cur_node);
+        path_length = cur_node.distance;
+        if(cur_node.map_index.toString() == q_goal.toString())
+        {
+            drawPath();
+            return;
+        }
+        var temp_node_array = cur_node.adjacent();
+        for(var x in temp_node_array)
+        {
+            //visit_queue.insert(temp_node_array[x],temp_node_array[x].distance);
+            if (temp_node_array[x].distance > cur_node.distance + dist(cur_node,temp_node_array[x])){
+                temp_node_array[x].parent = cur_node;
+                temp_node_array[x].distance = cur_node.distance + dist(cur_node,temp_node_array[x])
+            }
+            temp_node_array[x].f_score = temp_node_array[x].distance + 2*dist(temp_node_array[x],goal_node);
+            visit_queue.insert(temp_node_array[x],temp_node_array[x].f_score);
+        }
+        break;
+    }
+    debugger;
     search_iterate = true;
 }
 
@@ -367,22 +421,29 @@ function adjacent() {
     if(temp_adjacent[7][2] && map[temp_adjacent[7][0]][temp_adjacent[7][1]][0]) temp_adjacent[7][2]=0;
 
     for (var x in temp_adjacent) {
-        if (x[2]) {
-            if (map[x[0]][x[1]][1]!=null) {
-                if (map[x[0]][x[1]][1].visited) {
-                    x[2] = 0;
+        if (temp_adjacent[x][2]) {
+            if (map[temp_adjacent[x][0]][temp_adjacent[x][1]][1]!=null) {
+                if (map[temp_adjacent[x][0]][temp_adjacent[x][1]][1].visited) {
+                    temp_adjacent[x][2] = 0;
                 }
             }
         }
     }
 
     for (var x in temp_adjacent) {
-        if (x[2]) {
-            var index = [x[0],x[1]];
-            temp_node_queue.push(new Node(index));
+        if (temp_adjacent[x][2]) {
+            if (map[temp_adjacent[x][0]][temp_adjacent[x][1]][1]!=null) {
+                temp_node_queue.push(map[temp_adjacent[x][0]][temp_adjacent[x][1]][1])
+            }
+                else {
+                    var index = [temp_adjacent[x][0],temp_adjacent[x][1]];
+                    temp_node_queue.push(new Node(index));
+                }
         }
     }
+    debugger;
     return temp_node_queue;
+    debugger;
 }
 
 
@@ -392,8 +453,9 @@ function dist(node1,node2) {
     del_y = node1.map_index[1] - node2.map_index[1];
     if(del_x < 0)   del_x = 0-del_x;
     if(del_y < 0)   del_y = 0-del_y;
-    if(del_x < del_y) return (del_x+(del_y-del_x)*1.414);
-    else return (del_y+(del_x-del_y)*1.414);
+
+    if(del_x < del_y) return (del_y-del_x+del_x*1.41421);
+    else return (del_x-del_y+del_y*1.41421);
 }
 
 function iterateGraphSearch() {
@@ -490,18 +552,22 @@ function buildMap() {
 function drawMap() {
     if(!onSearching) {
         if(drawStep == "Start") {
+         q_init = [xformViewWorldX(mouse_x),xformViewWorldY(mouse_y)];
          drawStart();
            drawStep = "Goal"
         }
       else if(drawStep == "Goal") {
+            q_goal = [xformViewWorldX(mouse_x),xformViewWorldY(mouse_y)];
            drawGoal();
             drawStep = "Obstacle"
        }
-       else drawObstacles();        
+       else {
+        q_obstacle = [xformViewWorldX(mouse_x),xformViewWorldY(mouse_y)];
+        drawObstacles();   
+        }     
     }
 }
 function drawStart() {
-    q_init = [xformViewWorldX(mouse_x),xformViewWorldY(mouse_y)];
     c = document.getElementById("myCanvas");
     ctx = c.getContext("2d");
     ctx.fillStyle = "#0000FF";
@@ -509,15 +575,13 @@ function drawStart() {
 }
 
 function drawGoal() {
-    q_goal = [xformViewWorldX(mouse_x),xformViewWorldY(mouse_y)];
     c = document.getElementById("myCanvas");
     ctx = c.getContext("2d");
-    ctx.fillStyle = "#00FF00";
+    ctx.fillStyle = "#998822";
     ctx.fillRect(xformWorldViewX(q_goal[0]),xformWorldViewY(q_goal[1]),10,10);
 }
 
 function drawObstacles() {
-    q_obstacle = [xformViewWorldX(mouse_x),xformViewWorldY(mouse_y)];
     if(q_obstacle.toString() != q_init.toString() && q_obstacle.toString() != q_goal.toString()) {
         if(!map[q_obstacle[0]][q_obstacle[1]][0])   //
         {
@@ -536,8 +600,35 @@ function drawObstacles() {
     //     ctx.fillStyle = "#8888FF";
     //     ctx.fillRect(xformWorldViewX(range[j][0][0]),xformWorldViewY(range[j][1][0]),xformWorldViewX(range[j][0][1])-xformWorldViewX(range[j][0][0]),xformWorldViewY(range[j][1][1])-xformWorldViewY(range[j][1][0]));
     // }
+}
 
- 
+function drawFindingMap(node) {
+    c = document.getElementById("myCanvas");
+    ctx = c.getContext("2d");
+    ctx.fillStyle = "#00FF00";
+    ctx.fillRect(xformWorldViewX(node.map_index[0]),xformWorldViewY(node.map_index[1]),10,10);
+}
+
+function drawPath() {
+    drawGoal();
+
+    var temp = map[q_goal[0]][q_goal[1]][1];
+    var temp_parent = temp.parent;
+
+    c = document.getElementById("myCanvas");
+    ctx = c.getContext("2d");
+    ctx.strokeStyle = "#EE0000";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    while(temp_parent) {
+        ctx.moveTo(xformWorldViewX(temp.map_index[0])+5,xformWorldViewY(temp.map_index[1])+5);
+        ctx.lineTo(xformWorldViewX(temp_parent.map_index[0])+5,xformWorldViewY(temp_parent.map_index[1])+5);
+
+        temp = temp_parent;
+        temp_parent = temp.parent;
+    }
+    ctx.stroke();
+
 }
 
 function drawHighlightedPath(path) {
@@ -599,13 +690,17 @@ function drawHighlightedPathGraph(current_node) {
 // }
 
 var Node = function(map_index) {
+
+    if (map[map_index[0]][map_index[1]][1] == null) {
     this.parent = null;
     this.distance = 10000;
+    this.f_score = 10000;
     this.visited = false;
     this.map_index = map_index;
     this.adjacent = adjacent;
     //register the node in map
     map[map_index[0]][map_index[1]][1] = this;
+    }
 
 }
 
